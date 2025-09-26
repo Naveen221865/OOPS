@@ -1,0 +1,274 @@
+import java.util.*;
+import java.io.*;
+
+/**
+ * Interface for printable items.
+ */
+interface Printable {
+    void print();
+}
+
+/**
+ * Abstract class for recipe storage.
+ */
+abstract class RecipeStorage {
+    public abstract void addRecipe(Recipe recipe) throws DuplicateRecipeException;
+    public abstract List<Recipe> getAllRecipes();
+    public abstract Recipe findRecipeByTitle(String title);
+    public abstract boolean deleteRecipe(int id);
+}
+
+/**
+ * Custom Exception for duplicate recipes.
+ */
+class DuplicateRecipeException extends Exception {
+    public DuplicateRecipeException(String message) {
+        super(message);
+    }
+}
+
+/**
+ * Recipe class (implements Cloneable, Printable)
+ */
+class Recipe implements Cloneable, Printable {
+    private final int id;
+    private String title;
+    private List<String> ingredients;
+    private List<String> steps;
+
+    // Inner class for ID generation
+    static class IdGenerator {
+        private static int currentId = 0;
+
+        public static int generateId() {
+            return ++currentId;
+        }
+    }
+
+    // Constructor
+    public Recipe(String title, List<String> ingredients, List<String> steps) {
+        this.id = IdGenerator.generateId();
+        this.title = title;
+        this.ingredients = ingredients;
+        this.steps = steps;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    @Override
+    public void print() {
+        System.out.println(this);
+    }
+
+    @Override
+    public String toString() {
+        return "Recipe ID: " + id + "\nTitle: " + title + "\nIngredients: " + ingredients + "\nSteps: " + steps;
+    }
+
+    @Override
+    public Recipe clone() {
+        List<String> clonedIngredients = new ArrayList<>(this.ingredients);
+        List<String> clonedSteps = new ArrayList<>(this.steps);
+        return new Recipe(this.title + " (Clone)", clonedIngredients, clonedSteps);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof Recipe) {
+            Recipe other = (Recipe) obj;
+            return this.title.equalsIgnoreCase(other.title);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(title.toLowerCase());
+    }
+}
+
+/**
+ * In-memory recipe storage using inheritance
+ */
+class InMemoryRecipeStorage extends RecipeStorage {
+    private List<Recipe> recipes = new ArrayList<>();
+
+    @Override
+    public void addRecipe(Recipe recipe) throws DuplicateRecipeException {
+        for (Recipe r : recipes) {
+            if (r.equals(recipe)) {
+                throw new DuplicateRecipeException("Recipe with this title already exists.");
+            }
+        }
+        recipes.add(recipe);
+    }
+
+    @Override
+    public List<Recipe> getAllRecipes() {
+        return recipes;
+    }
+
+    @Override
+    public Recipe findRecipeByTitle(String title) {
+        for (Recipe r : recipes) {
+            if (r.getTitle().equalsIgnoreCase(title)) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public boolean deleteRecipe(int id) {
+        return recipes.removeIf(r -> r.getId() == id);
+    }
+}
+
+/**
+ * RecipeManager - Handles user interaction
+ */
+class RecipeManager {
+    private RecipeStorage storage;
+    private Scanner scanner = new Scanner(System.in);
+
+    public RecipeManager(RecipeStorage storage) {
+        this.storage = storage;
+    }
+
+    public void run() {
+        while (true) {
+            System.out.println("\n=== Recipe Management ===");
+            System.out.println("1. Add Recipe");
+            System.out.println("2. View All Recipes");
+            System.out.println("3. Search Recipe by Title");
+            System.out.println("4. Clone Recipe");
+            System.out.println("5. Delete Recipe");
+            System.out.println("6. Save to Stream");
+            System.out.println("7. Exit");
+            System.out.print("Choose: ");
+
+            int choice = scanner.nextInt();
+            scanner.nextLine(); // consume newline
+
+            try {
+                switch (choice) {
+                    case 1 -> addRecipe();
+                    case 2 -> viewAll();
+                    case 3 -> search();
+                    case 4 -> cloneRecipe();
+                    case 5 -> deleteRecipe();
+                    case 6 -> saveToStream();
+                    case 7 -> {
+                        System.out.println("Goodbye!");
+                        return;
+                    }
+                    default -> System.out.println("Invalid choice.");
+                }
+            } catch (Exception e) {
+                System.out.println("❌ Error: " + e.getMessage());
+            }
+        }
+    }
+
+    private void addRecipe() throws DuplicateRecipeException {
+        System.out.print("Enter recipe title: ");
+        String title = scanner.nextLine();
+
+        System.out.println("Enter ingredients (comma-separated):");
+        String[] ingArray = scanner.nextLine().split(",");
+        List<String> ingredients = Arrays.asList(ingArray);
+
+        System.out.println("Enter steps (comma-separated):");
+        String[] stepsArray = scanner.nextLine().split(",");
+        List<String> steps = Arrays.asList(stepsArray);
+
+        Recipe recipe = new Recipe(title.trim(), ingredients, steps);
+        storage.addRecipe(recipe);
+        System.out.println("✅ Recipe added.");
+    }
+
+    private void viewAll() {
+        List<Recipe> recipes = storage.getAllRecipes();
+        if (recipes.isEmpty()) {
+            System.out.println("No recipes yet.");
+            return;
+        }
+        for (Recipe r : recipes) {
+            r.print();
+            System.out.println("----------------");
+        }
+    }
+
+    private void search() {
+        System.out.print("Enter title to search: ");
+        String title = scanner.nextLine();
+        Recipe r = storage.findRecipeByTitle(title);
+        if (r != null) {
+            System.out.println("Found:\n" + r);
+        } else {
+            System.out.println("Recipe not found.");
+        }
+    }
+
+    private void cloneRecipe() {
+        System.out.print("Enter title to clone: ");
+        String title = scanner.nextLine();
+        Recipe original = storage.findRecipeByTitle(title);
+        if (original != null) {
+            Recipe clone = original.clone();
+            try {
+                storage.addRecipe(clone);
+                System.out.println("✅ Cloned successfully.");
+            } catch (DuplicateRecipeException e) {
+                System.out.println("❌ Cannot clone: " + e.getMessage());
+            }
+        } else {
+            System.out.println("Original not found.");
+        }
+    }
+
+    private void deleteRecipe() {
+        System.out.print("Enter ID to delete: ");
+        int id = scanner.nextInt();
+        boolean removed = storage.deleteRecipe(id);
+        System.out.println(removed ? "✅ Deleted." : "Recipe ID not found.");
+    }
+
+    private void saveToStream() throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(out);
+
+        for (Recipe r : storage.getAllRecipes()) {
+            ps.println(r);
+        }
+
+        ps.flush();
+        System.out.println("\nSaved to Stream:");
+        System.out.println(out.toString());
+    }
+}
+
+/**
+ * Main class - Entry point
+ */
+public class Main {
+    public static void main(String[] args) {
+        RecipeStorage storage = new InMemoryRecipeStorage();
+        RecipeManager manager = new RecipeManager(storage);
+
+        // Reflection demo
+        System.out.println("🔍 Class Info via Reflection:");
+        Class<?> clazz = storage.getClass();
+        System.out.println("Class Name: " + clazz.getName());
+        System.out.println("Methods: " + Arrays.toString(clazz.getDeclaredMethods()));
+        System.out.println("------------------------------");
+
+        manager.run();
+    }
+}
