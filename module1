@@ -1,0 +1,213 @@
+import java.util.*;
+
+// ---------------------------
+// Recipe class (Entity)
+// ---------------------------
+class Recipe {
+    private static int count = 0;
+    private int id;
+    private String title;
+    private List<String> ingredients;
+    private List<String> steps;
+
+    public Recipe(String title, List<String> ingredients, List<String> steps) {
+        this.id = ++count;
+        this.title = title;
+        this.ingredients = ingredients;
+        this.steps = steps;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void display() {
+        System.out.println("\nRecipe ID: " + id);
+        System.out.println("Title: " + title);
+        System.out.println("Ingredients:");
+        for (String ing : ingredients) {
+            System.out.println("- " + ing);
+        }
+        System.out.println("Steps:");
+        for (String step : steps) {
+            System.out.println("* " + step);
+        }
+    }
+}
+
+// ---------------------------
+// Abstract class (Abstraction)
+// ---------------------------
+abstract class RecipeStorage {
+    public abstract void addRecipe(Recipe recipe);
+    public abstract List<Recipe> getAllRecipes();
+    public abstract Recipe findRecipeByTitle(String title);
+    public abstract boolean deleteRecipe(int id);
+}
+
+// ---------------------------
+// In-memory storage (Inheritance)
+// ---------------------------
+class InMemoryRecipeStorage extends RecipeStorage {
+    private List<Recipe> recipeList;
+
+    public InMemoryRecipeStorage() {
+        recipeList = new ArrayList<>();
+    }
+
+    @Override
+    public void addRecipe(Recipe recipe) {
+        recipeList.add(recipe);
+    }
+
+    @Override
+    public List<Recipe> getAllRecipes() {
+        return recipeList;
+    }
+
+    @Override
+    public Recipe findRecipeByTitle(String title) {
+        for (Recipe recipe : recipeList) {
+            if (recipe.getTitle().equalsIgnoreCase(title)) {
+                return recipe;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public boolean deleteRecipe(int id) {
+        return recipeList.removeIf(recipe -> recipe.getId() == id);
+    }
+}
+
+// ---------------------------
+// RecipeManager (Controller)
+// ---------------------------
+class RecipeManager {
+    private RecipeStorage storage;
+    private Scanner scanner;
+
+    public RecipeManager(RecipeStorage storage) {
+        this.storage = storage;
+        this.scanner = new Scanner(System.in);
+    }
+
+    public void run() {
+        int choice;
+        do {
+            System.out.println("\n--- Recipe Management System ---");
+            System.out.println("1. Add Recipe");
+            System.out.println("2. View All Recipes");
+            System.out.println("3. Search Recipe by Title");
+            System.out.println("4. Delete Recipe by ID");
+            System.out.println("5. Exit");
+            System.out.print("Choose an option: ");
+            while (!scanner.hasNextInt()) {
+                System.out.print("Enter a number (1-5): ");
+                scanner.next();
+            }
+            choice = scanner.nextInt();
+            scanner.nextLine(); // consume newline
+
+            switch (choice) {
+                case 1:
+                    addRecipe();
+                    break;
+                case 2:
+                    viewAll();
+                    break;
+                case 3:
+                    searchRecipe();
+                    break;
+                case 4:
+                    deleteRecipe();
+                    break;
+                case 5:
+                    System.out.println("Exiting system.");
+                    break;
+                default:
+                    System.out.println("Invalid option.");
+            }
+        } while (choice != 5);
+    }
+
+    private void addRecipe() {
+        System.out.print("Enter recipe title: ");
+        String title = scanner.nextLine();
+
+        List<String> ingredients = new ArrayList<>();
+        System.out.println("Enter ingredients (type 'done' to finish):");
+        while (true) {
+            String ing = scanner.nextLine();
+            if (ing.equalsIgnoreCase("done")) break;
+            ingredients.add(ing);
+        }
+
+        List<String> steps = new ArrayList<>();
+        System.out.println("Enter steps (type 'done' to finish):");
+        while (true) {
+            String step = scanner.nextLine();
+            if (step.equalsIgnoreCase("done")) break;
+            steps.add(step);
+        }
+
+        Recipe recipe = new Recipe(title, ingredients, steps);
+        storage.addRecipe(recipe);
+        System.out.println("Recipe added successfully.");
+    }
+
+    private void viewAll() {
+        List<Recipe> recipes = storage.getAllRecipes();
+        if (recipes.isEmpty()) {
+            System.out.println("No recipes available.");
+        } else {
+            for (Recipe r : recipes) {
+                r.display();
+                System.out.println("----------------------------");
+            }
+        }
+    }
+
+    private void searchRecipe() {
+        System.out.print("Enter title to search: ");
+        String title = scanner.nextLine();
+        Recipe recipe = storage.findRecipeByTitle(title);
+        if (recipe != null) {
+            recipe.display();
+        } else {
+            System.out.println("Recipe not found.");
+        }
+    }
+
+    private void deleteRecipe() {
+        System.out.print("Enter recipe ID to delete: ");
+        while (!scanner.hasNextInt()) {
+            System.out.print("Enter a valid recipe ID: ");
+            scanner.next();
+        }
+        int id = scanner.nextInt();
+        scanner.nextLine(); // consume newline
+        boolean success = storage.deleteRecipe(id);
+        if (success) {
+            System.out.println("Recipe deleted.");
+        } else {
+            System.out.println("Recipe ID not found.");
+        }
+    }
+}
+
+// ---------------------------
+// Main class
+// ---------------------------
+public class Main {
+    public static void main(String[] args) {
+        RecipeStorage storage = new InMemoryRecipeStorage();
+        RecipeManager manager = new RecipeManager(storage);
+        manager.run();
+    }
+}
